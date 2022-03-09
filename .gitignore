@@ -137,3 +137,4 @@ afrit5*/
 .vscode/
 __MACOSX/
 lightning_logs/*
+tokenizers/
