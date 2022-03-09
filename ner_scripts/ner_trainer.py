@@ -1,5 +1,5 @@
-from classification_dataset import ClassificationDataset
-from utils import LoggingCallback, get_dataset
+from ner_datasets import NERDataset, get_dataset
+from utils import LoggingCallback, generate_label
 import pandas as pd
 import numpy as np
 import torch
@@ -13,21 +13,10 @@ from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer
 from model import T5FineTuner
 import pytorch_lightning as pl
+from datasets import load_metric
+from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 
 MODEL_MAX_LENGTH = 512
-
-NEWS_LABELS = {
-    "yoruba": [
-        "nigeria",
-        "africa",
-        "world",
-        "entertainment",
-        "health",
-        "sport",
-        "politics",
-    ],
-    "hausa": ["africa", "world", "health", "nigeria", "politics"],
-}
 
 
 def get_parser() -> argparse.ArgumentParser:
@@ -79,19 +68,6 @@ def get_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def generate_class_token(class_labels: list, tokenizer):
-    class_map = {}
-    for label in class_labels:
-        if tokenizer.convert_tokens_to_ids(label) > 5:
-            class_map[label] = label
-        else:
-            token = ""
-            while not token.startswith("▁"):
-                token = random.sample(list(tokenizer.vocab.keys()), 1)[0]
-            class_map[label] = token.replace("▁", "")
-    return class_map
-
-
 def main():
     parser = get_parser()
     args = parser.parse_args()
@@ -99,31 +75,16 @@ def main():
     print(f"Training Arguments {args}")
 
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_name_or_path)
+    metric = load_metric("seqeval")
 
-    label = NEWS_LABELS[args.lang]
-    class_map = generate_class_token(label, tokenizer)
-    inv_class_map = {v: k for k, v in class_map.items()}
-
-    print(class_map)
-    print(inv_class_map)
-
-    train_dataset = ClassificationDataset(
-        tokenizer=tokenizer,
-        data_path=args.data_path,
-        type_path="train",
-        class_map=class_map,
+    train_dataset = NERDataset(
+        tokenizer=tokenizer, data_path=args.data_path, type_path="train"
     )
-    eval_dataset = ClassificationDataset(
-        tokenizer=tokenizer,
-        data_path=args.data_path,
-        type_path="dev",
-        class_map=class_map,
+    eval_dataset = NERDataset(
+        tokenizer=tokenizer, data_path=args.data_path, type_path="dev"
     )
-    test_dataset = ClassificationDataset(
-        tokenizer=tokenizer,
-        data_path=args.data_path,
-        type_path="test",
-        class_map=class_map,
+    test_dataset = NERDataset(
+        tokenizer=tokenizer, data_path=args.data_path, type_path="test"
     )
 
     # save checkpoint during training
@@ -145,71 +106,102 @@ def main():
         checkpoint_callback=checkpoint_callback,
         callbacks=[LoggingCallback()],
     )
-
     # Train
-    model = T5FineTuner(args, class_map)
+    model = T5FineTuner(args)
     trainer = pl.Trainer(**train_params)
     trainer.fit(model)
 
     # test evaluation
-    test_loader = DataLoader(test_dataset, batch_size=64, num_workers=4, shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=32, num_workers=2, shuffle=True)
     model.model.eval()
     model = model.to("cpu")
     outputs = []
     targets = []
+    all_text = []
+    true_labels = []
+    pred_labels = []
     for batch in tqdm(test_loader):
 
         outs = model.model.generate(
-            input_ids=batch["source_ids"],
-            attention_mask=batch["source_mask"],
-            max_length=2,
+            input_ids=batch["source_ids"], attention_mask=batch["source_mask"]
         )
-        dec = [tokenizer.decode(ids, skip_special_tokens=True) for ids in outs]
+        dec = [
+            tokenizer.decode(
+                ids, skip_special_tokens=True, clean_up_tokenization_spaces=False
+            ).strip()
+            for ids in outs
+        ]
         target = [
-            tokenizer.decode(ids, skip_special_tokens=True)
+            tokenizer.decode(
+                ids, skip_special_tokens=True, clean_up_tokenization_spaces=False
+            ).strip()
             for ids in batch["target_ids"]
         ]
-        target = [inv_class_map[item] for item in target]
-        dec = [inv_class_map[item] for item in dec]
+        texts = [
+            tokenizer.decode(
+                ids, skip_special_tokens=True, clean_up_tokenization_spaces=False
+            ).strip()
+            for ids in batch["source_ids"]
+        ]
+        true_label = [
+            generate_label(texts[i].strip(), target[i].strip())
+            if target[i].strip() != "none"
+            else ["O"] * len(texts[i].strip().split())
+            for i in range(len(texts))
+        ]
+        pred_label = [
+            generate_label(texts[i].strip(), dec[i].strip())
+            if dec[i].strip() != "none"
+            else ["O"] * len(texts[i].strip().split())
+            for i in range(len(texts))
+        ]
 
         outputs.extend(dec)
         targets.extend(target)
+        true_labels.extend(true_label)
+        pred_labels.extend(pred_label)
+        all_text.extend(texts)
 
-    print(metrics.accuracy_score(targets, outputs))
-    print(metrics.classification_report(targets, outputs))
+    for i in range(10):
+        print(f"Text:  {all_text[i]}")
+        print(f"Predicted Token Class:  {pred_labels[i]}")
+        print(f"True Token Class:  {true_labels[i]}")
+        print("=====================================================================\n")
+
+    print(metric.compute(predictions=pred_labels, references=true_labels))
 
     # random
     new_batch = next(iter(test_loader))
     new_batch["source_ids"].shape
     outs = model.model.generate(
-        input_ids=new_batch["source_ids"],
-        attention_mask=new_batch["source_mask"],
-        max_length=2,
+        input_ids=new_batch["source_ids"], attention_mask=new_batch["source_mask"]
     )
-
-    dec = [tokenizer.decode(ids, skip_special_tokens=True) for ids in outs]
-
-    texts = [
-        tokenizer.decode(ids, skip_special_tokens=True)
-        for ids in new_batch["source_ids"]
+    dec = [
+        tokenizer.decode(
+            ids, skip_special_tokens=True, clean_up_tokenization_spaces=False
+        ).strip()
+        for ids in outs
     ]
-    targets = [
-        tokenizer.decode(ids, skip_special_tokens=True)
+    target = [
+        tokenizer.decode(
+            ids, skip_special_tokens=True, clean_up_tokenization_spaces=False
+        ).strip()
         for ids in new_batch["target_ids"]
     ]
-
-    targets = [inv_class_map[item] for item in targets]
-    dec = [inv_class_map[item] for item in dec]
+    texts = [
+        tokenizer.decode(
+            ids, skip_special_tokens=True, clean_up_tokenization_spaces=False
+        ).strip()
+        for ids in new_batch["source_ids"]
+    ]
 
     for i in range(32):
         c = texts[i]
         lines = textwrap.wrap("text:\n%s\n" % c, width=100)
         print("\n".join(lines))
-        print("\nActual sentiment: %s" % targets[i])
+        print("\nActual sentiment: %s" % target[i])
         print("predicted sentiment: %s" % dec[i])
         print("=====================================================================\n")
-
-    print(new_batch["target_ids"])
 
 
 if __name__ == "__main__":

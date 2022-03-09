@@ -1,0 +1,26 @@
+{
+    "output_dir": "afriT5_run/afrit5_large",
+    "model_type": "t5-large",
+    "config_name": "t5-large",
+    "tokenizer_name": "afrit5_tokenizers/afrit5_tokenizers",
+    "train_file": "data/train/all_train.txt",
+    "validation_file": "data/eval/all_eval.txt",
+    "max_seq_length": 512,
+    "per_device_train_batch_size": 16,
+    "per_device_eval_batch_size": 16,
+    "adafactor": true,
+    "learning_rate": 0.0003,
+    "weight_decay": 0.001,
+    "warmup_steps": 40000,
+    "overwrite_output_dir": true,
+    "logging_steps": 1000,
+    "save_steps": 20000,
+    "eval_steps": 20000,
+    "mlm_probability": 0.15,
+    "num_train_epochs": 400,
+    "do_train": true,
+    "do_eval":true,
+    "fp16": true,
+    "dtype": "bfloat16"
+
+}
