@@ -137,4 +137,10 @@ afrit5*/
 .vscode/
 __MACOSX/
 lightning_logs/*
+<<<<<<< HEAD
 tokenizers/
+=======
+
+
+logs/
+>>>>>>> 0b189e1 (update gitignore)
