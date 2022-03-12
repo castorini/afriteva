@@ -1,17 +1,17 @@
-LANGS=("am" "ha" "sw")
+LANGS=("en")
 DATA_DIR=data
 MIN_TOKENS=6
 SEED=42
-N_TRAIN_SENTENCES=(525024 1282996 1442911)
-N_EVAL_SENTENCES=(30000 100000 100000)
+N_TRAIN_SENTENCES=(1000000)
+N_EVAL_SENTENCES=(100000)
 mkdir -p $DATA_DIR
 
 
 for i in "${!LANGS[@]}"
     do
         lang=${LANGS[i]}
-        # wget http://data.statmt.org/cc-100/$lang.txt.xz -O $DATA_DIR/$lang.txt.xz -o $DATA_DIR/$lang.txt.xz.out
-        # unxz $DATA_DIR/$lang.txt.xz
+        wget http://data.statmt.org/cc-100/$lang.txt.xz -O $DATA_DIR/$lang.txt.xz -o $DATA_DIR/$lang.txt.xz.out
+        unxz $DATA_DIR/$lang.txt.xz
 
         # Remove lines containing only white space or few number of tokens
         cat $DATA_DIR/$lang.txt | sed '/^[[:space:]]*$/d' | awk -v n_tokens=$MIN_TOKENS 'NF>n_tokens'> $DATA_DIR/"$lang".new.txt
