@@ -485,8 +485,8 @@ def main():
         )
 
     def preprocess_function(examples):
-        inputs = [ex[source_lang] for ex in examples["translation"]]
-        targets = [ex[target_lang] for ex in examples["translation"]]
+        inputs = [ex[source_lang] for ex in examples["translate"]]
+        targets = [ex[target_lang] for ex in examples["translate"]]
         inputs = [prefix + inp for inp in inputs]
         model_inputs = tokenizer(
             inputs,
