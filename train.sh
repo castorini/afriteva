@@ -8,4 +8,4 @@
 
 nvidia-smi
 
-python3 src/trainer.py training_configs/t5_base.json
+python3 src/trainer.py training_configs/t5_large.json
