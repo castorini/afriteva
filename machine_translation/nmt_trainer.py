@@ -584,6 +584,7 @@ def main():
 
     # Metric
     metric = load_metric("sacrebleu")
+    metric_two = load_metric("chrf")
 
     def postprocess_text(preds, labels):
         preds = [pred.strip() for pred in preds]
@@ -605,7 +606,11 @@ def main():
         decoded_preds, decoded_labels = postprocess_text(decoded_preds, decoded_labels)
 
         result = metric.compute(predictions=decoded_preds, references=decoded_labels)
-        result = {"bleu": result["score"]}
+        result_two = metric_two.compute(
+            predictions=decoded_preds, references=decoded_labels
+        )
+
+        result = {"bleu": result["score"], "Chrf": result_two["score"]}
 
         prediction_lens = [
             np.count_nonzero(pred != tokenizer.pad_token_id) for pred in preds
