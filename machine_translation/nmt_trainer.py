@@ -26,6 +26,8 @@ from typing import Optional
 
 import datasets
 import numpy as np
+from tokenizers import normalizers
+from tokenizers.normalizers import NFC, Lowercase
 from datasets import load_dataset, load_metric
 
 import transformers
@@ -488,6 +490,11 @@ def main():
         inputs = [ex[source_lang] for ex in examples["translate"]]
         targets = [ex[target_lang] for ex in examples["translate"]]
         inputs = [prefix + inp for inp in inputs]
+        
+        normalizer = normalizers.Sequence([NFC(), Lowercase()])
+        inputs = [normalizer.normalize_str(inp) for inp in inputs]
+        targets = [normalizer.normalize_str(targ) for targ in targets]
+        
         model_inputs = tokenizer(
             inputs,
             max_length=data_args.max_source_length,
