@@ -29,6 +29,7 @@ import numpy as np
 from datasets import load_dataset, load_metric
 
 import transformers
+from dotenv import load_dotenv
 from transformers import (
     AutoConfig,
     AutoModelForSeq2SeqLM,
@@ -68,7 +69,7 @@ MULTILINGUAL_TOKENIZERS = [
     MBart50TokenizerFast,
     M2M100Tokenizer,
 ]
-
+load_dotenv()
 
 @dataclass
 class ModelArguments:
