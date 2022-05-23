@@ -1,2 +1,2 @@
-# AfriTeva
-Text - 2 - Text for African languages
+# AfriTeVa: Extending “Small Data” Pretraining Approaches to Sequence-to-Sequence Models 
+<hr>
