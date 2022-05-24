@@ -8,8 +8,13 @@ AfriTeVa is a sequence to
 Afaan Oromoo(orm), Amharic(amh), Gahuza(gah), Hausa(hau), Igbo(igb), Nigerian Pidgin(pcm), Somali(som), Swahili(swa), Tigrinya(tig), Yoruba(yor)
 
 ## Reproducibility
- 
-The data for language modelling can be downloaded from [this URL](https://huggingface.co/datasets/castorini/afriberta-corpus)
+
+### Datasets
+
+- **Language Modelling**: The data for language modelling can be downloaded from [this URL](https://huggingface.co/datasets/castorini/afriberta-corpus)
+- **Machine Translation**: To obtain the Machine Translation dataset, please download it from [this repository](https://github.com/masakhane-io/lafand-mt)
+
+- **Text Classification**: To obtain the topic classification dataset, please download it from [this repository](https://github.com/uds-lsv/transfer-distant-transformer-african)
 
 ### Tokenizer
 
