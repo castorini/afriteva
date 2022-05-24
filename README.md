@@ -3,9 +3,17 @@
 This repo contains the code for the paper [AfriTeVa: Extending “Small Data” Pretraining Approaches to Sequence-to-Sequence Models ](#)
 AfriTeVa is a sequence to 
 
-## Languages Covered During Training
+## Languages Covered During Pretraining
 
 Afaan Oromoo(orm), Amharic(amh), Gahuza(gah), Hausa(hau), Igbo(igb), Nigerian Pidgin(pcm), Somali(som), Swahili(swa), Tigrinya(tig), Yoruba(yor)
+
+**Models:**
+
+We release the following pretrained models:
+
+- [AfriTeVa Small](https://huggingface.co/castorini/afriteva_small) (64M params)
+- [AfriTeVa Base](https://huggingface.co/castorini/afriteva_base) (229M params)
+- [AfriTeVa Large](https://huggingface.co/castorini/afriteva_large) (745M params)
 
 ## Reproducibility
 
@@ -30,5 +38,6 @@ However, to train a custom tokenizer, run the command below with the following a
 ```
 
 ## Citation
- xxx
+
+Coming soon..
 
