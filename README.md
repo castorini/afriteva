@@ -1,12 +1,12 @@
-# AfriTeva
-Text - 2 - Text for African l
-anguages
+# AfriTeVa: Extending “Small Data” Pretraining Approaches to Sequence-to-Sequence Models 
 
+This repo contains the code for the paper [AfriTeVa: Extending “Small Data” Pretraining Approaches to Sequence-to-Sequence Models ](#)
+AfriTeVa is a sequence to 
 
-# Data
+## Languages Covered During Training
 
-# Models
-## Artifacts
-[Tokenizers](https://drive.google.com/uc?export=download&id=1zY8YCUa6onPUNJXO91tB0auFTauwSzAe)
-[Models](https://drive.google.com/uc?export=download&id=1n8ZLR90oVg-lrAXrJdOM0TSjmEOYSXk7)
+Afaan Oromoo(orm), Amharic(amh), Gahuza(gah), Hausa(hau), Igbo(igb), Nigerian Pidgin(pcm), Somali(som), Swahili(swa), Tigrinya(tig), Yoruba(yor)
+
+## Citation
+ xxx
 
