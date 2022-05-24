@@ -4,7 +4,7 @@ export CUDA_AVAILABLE_DEVICES=0
 data_path=$1
 vocab_size=$2
 
-train_data_path=$data_path/train_afriberta/all_train.txt
+train_data_path=$data_path/train/all_train.txt
 output_path=tokenizers/all_lang_eng_tokenizer
 
 
