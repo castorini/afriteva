@@ -7,6 +7,10 @@ import argparse
 def generate_jsonl_dataset(
     input_directory, mode, lr_lang_code, lr_lang, target_lang_code="en", output_dir=None
 ):
+    """
+    Use this script to convert translation datasets where the source and target
+    are in different files to huggingface json format.
+    """
     files = [file for file in os.listdir(input_directory) if mode in file]
     assert len(files) == 2, "The required amount of files not available"
 

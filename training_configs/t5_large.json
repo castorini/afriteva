@@ -1,10 +1,10 @@
 {
-    "output_dir": "run/afriteva_eng_large",
+    "output_dir": "run/afriteva_large",
     "model_type": "t5-large",
     "config_name": "t5-large",
-    "tokenizer_name": "tokenizers/all_lang_eng_tokenizer",
-    "train_file": "data/data/train_afriberta/all_train.txt",
-    "validation_file": "data/data/eval/all_eval.txt",
+    "tokenizer_name": "tokenizers/afriteva_tokenizers",
+    "train_file": "/data/train/all_train.txt",
+    "validation_file": "data/eval/all_eval.txt",
     "max_seq_length": 512,
     "per_device_train_batch_size": 4,
     "per_device_eval_batch_size": 4,
@@ -19,9 +19,8 @@
     "mlm_probability": 0.15,
     "num_train_epochs": 500,
     "do_train": true,
-    "do_eval":true,
+    "do_eval": true,
     "fp16": true,
     "dtype": "bfloat16",
-    "gradient_accumulation_steps": 4
-
+    "gradient_accumulation_steps": 16
 }

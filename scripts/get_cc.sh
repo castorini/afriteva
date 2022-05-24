@@ -1,3 +1,5 @@
+#!/bin/bash
+
 LANGS=("en")
 DATA_DIR=data
 MIN_TOKENS=6

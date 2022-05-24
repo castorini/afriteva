@@ -1,10 +1,4 @@
 #!/bin/bash
-#SBATCH --mem=128G 
-#SBATCH --cpus-per-task=10
-#SBATCH --time=48:00:0
-#SBATCH --gres=gpu:a100:2
-#SBATCH --account=def-jimmylin
-#SBATCH -o logs/%j.log
 
 export CUDA_AVAILABLE_DEVICES=0,1
 
