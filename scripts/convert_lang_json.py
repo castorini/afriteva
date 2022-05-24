@@ -22,7 +22,7 @@ def generate_jsonl_dataset(
     data = []
     for i in range(len(eng_data)):
         template = {"translate": {}}
-        if eng_data[i].strip() == "":
+        if eng_data[i].strip() != "":
             template["translate"]["English"] = eng_data[i]
             template["translate"][lr_lang] = targ_lang_data[i]
             data.append(template)

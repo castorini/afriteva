@@ -29,6 +29,7 @@ import numpy as np
 from datasets import load_dataset, load_metric
 
 import transformers
+from dotenv import load_dotenv
 from transformers import (
     AutoConfig,
     AutoModelForSeq2SeqLM,
@@ -58,7 +59,14 @@ require_version("datasets>=1.8.0", "To fix: pip install -r examples/pytorch/tran
 logger = logging.getLogger(__name__)
 
 # A list of all multilingual tokenizer which require src_lang and tgt_lang attributes.
-MULTILINGUAL_TOKENIZERS = [MBartTokenizer, MBartTokenizerFast, MBart50Tokenizer, MBart50TokenizerFast, M2M100Tokenizer]
+MULTILINGUAL_TOKENIZERS = [
+    MBartTokenizer,
+    MBartTokenizerFast,
+    MBart50Tokenizer,
+    MBart50TokenizerFast,
+    M2M100Tokenizer,
+]
+load_dotenv()
 
 
 @dataclass
