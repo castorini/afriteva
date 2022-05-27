@@ -5,7 +5,7 @@ data_path=$1
 vocab_size=$2
 output_path=$3
 
-train_data_path=${data_path}/train/all_train.txt
+train_data_path=${data_path}/all_train.txt
 output_path=${output_path}
 
 mkdir -p $output_path
