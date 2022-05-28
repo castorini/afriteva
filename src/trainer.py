@@ -474,7 +474,7 @@ def write_train_metric(train_metrics, train_time, step, writer_type: str, eval_s
 
     train_metrics = get_metrics(train_metrics)
 
-    for key, vals in train_metrics.items():
+    for metric_idx, (key, vals) in enumerate(train_metrics.items()):
         tag = f"train/{key}"
         
         for i, val in enumerate(vals):
@@ -482,7 +482,9 @@ def write_train_metric(train_metrics, train_time, step, writer_type: str, eval_s
                 assert summary_writer is not None
                 summary_writer.scalar(tag, val, step=step - len(vals) + i + 1)
             elif writer_type == "wandb":
-                wandb.log({tag: val}, step=step - len(vals) + i + 1, commit=False if step % eval_steps == 0 else True)
+                wandb.log(
+                     {tag: val}, step=step - len(vals) + i + 1, 
+                     commit=True if (metric_idx+1 == len(train_metrics)) and (step % eval_steps != 0) else False)
 
 
 def write_eval_metric(eval_metrics, step, writer_type: str, summary_writer=None):
