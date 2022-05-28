@@ -462,11 +462,12 @@ def generate_batch_splits(samples_idx: jnp.ndarray, batch_size: int) -> jnp.ndar
     return batch_idx
 
 
-def write_train_metric(train_metrics, train_time, step, writer_type: str, summary_writer=None):
+def write_train_metric(train_metrics, train_time, step, writer_type: str, eval_steps=None, summary_writer=None):
     if writer_type == "tensorboard":
         assert summary_writer is not None
         summary_writer.scalar("train_time", train_time, step)
     elif writer_type == "wandb":
+        assert eval_steps is not None
         wandb.log({"train_time": train_time}, step=step, commit=False)
     # else:
     #    logger.warning("Train Metrics could not be written. Supported `writer_type` are wandb & tensorboard")
@@ -481,7 +482,7 @@ def write_train_metric(train_metrics, train_time, step, writer_type: str, summar
                 assert summary_writer is not None
                 summary_writer.scalar(tag, val, step=step - len(vals) + i + 1)
             elif writer_type == "wandb":
-                wandb.log({tag: val}, step=step - len(vals) + i + 1, commit=False if cur_step % training_args.eval_steps == 0 else True)
+                wandb.log({tag: val}, step=step - len(vals) + i + 1, commit=False if step % eval_steps == 0 else True)
 
 
 def write_eval_metric(eval_metrics, step, writer_type: str, summary_writer=None):
@@ -915,7 +916,8 @@ def main():
                 if jax.process_index() == 0:
                     write_train_metric(
                         train_metrics, train_time, cur_step, 
-                        writer_type="tensorboard" if has_tensorboard and use_tensorboard else "wandb")
+                        writer_type="tensorboard" if has_tensorboard and use_tensorboard else "wandb",
+                        eval_steps=training_args.eval_steps)
 
                 epochs.write(
                     f"Step... ({cur_step} | Loss: {train_metric['loss'].mean()}, Learning Rate: {train_metric['learning_rate'].mean()})"
