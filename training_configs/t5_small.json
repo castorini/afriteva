@@ -17,7 +17,7 @@
     "save_steps": 20000,
     "eval_steps": 20000,
     "mlm_probability": 0.15,
-    "num_train_epochs": 200,
+    "max_steps": 500000,
     "do_train": true,
     "do_eval": true,
     "fp16": true,
