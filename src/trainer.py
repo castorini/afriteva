@@ -467,7 +467,7 @@ def write_train_metric(train_metrics, train_time, step, writer_type: str, summar
         assert summary_writer is not None
         summary_writer.scalar("train_time", train_time, step)
     elif writer_type == "wandb":
-        wandb.log({"train_time": train_time}, step=step)
+        wandb.log({"train_time": train_time}, step=step, commit=False)
     # else:
     #    logger.warning("Train Metrics could not be written. Supported `writer_type` are wandb & tensorboard")
 
@@ -478,9 +478,10 @@ def write_train_metric(train_metrics, train_time, step, writer_type: str, summar
         
         for i, val in enumerate(vals):
             if writer_type == "tensorboard":
-                summary_writer.scalar(tag, val, step=step-len(vals)+1)
+                assert summary_writer is not None
+                summary_writer.scalar(tag, val, step=step - len(vals) + i + 1)
             elif writer_type == "wandb":
-                wandb.log({tag: val}, step=step-len(vals)+1)
+                wandb.log({tag: val}, step=step - len(vals) + i + 1, commit=False if cur_step % training_args.eval_steps == 0 else True)
 
 
 def write_eval_metric(eval_metrics, step, writer_type: str, summary_writer=None):
@@ -489,7 +490,7 @@ def write_eval_metric(eval_metrics, step, writer_type: str, summary_writer=None)
             assert summary_writer is not None
             summary_writer.scalar(f"eval/{metric_name}", value, step)
         elif writer_type == "wandb":
-            wandb.log({f"eval/{metric_name}": value}, step=step)
+            wandb.log({f"eval/{metric_name}": value}, step=step, commit=True)
         # else:
         #    logger.warning("Eval Metrics could not be written. Supported `writer_type` are wandb & tensorboard")
 
