@@ -83,6 +83,9 @@ class TrainingArguments:
                             "help": "Whether or not to replace AdamW by Adafactor."})
     num_train_epochs: float = field(
         default=3.0, metadata={"help": "Total number of training epochs to perform."})
+    max_steps: int = field(
+        default=-1, metadata={"help": "Total number of training steps to take. Takes precedence over num_train_epochs"}
+    )
     warmup_steps: int = field(
         default=0, metadata={"help": "Linear warmup over warmup_steps."})
     logging_steps: int = field(default=500, metadata={
@@ -101,6 +104,7 @@ class TrainingArguments:
     )
     hub_token: str = field(default=None, metadata={
                            "help": "The token to use to push to the Model Hub."})
+    report_to: str = field(default="wandb", metadata={"help": "Write metric to tensorboard or wandb"})
 
     def __post_init__(self):
         if self.output_dir is not None:
