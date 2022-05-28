@@ -768,14 +768,20 @@ def main():
     # Store some constant
     logging.info(f"Number of local devices:: {jax.local_device_count()}")
     logging.info(f"Number of devices:: {jax.device_count()}")
-    num_epochs = int(training_args.num_train_epochs)
+    
+    
     train_batch_size = int(
         training_args.per_device_train_batch_size) * jax.device_count()
     eval_batch_size = int(
         training_args.per_device_eval_batch_size) * jax.device_count()
-
-    num_train_steps = len(
-        tokenized_datasets["train"]) // train_batch_size * num_epochs
+    
+    # max_steps takes precedence over num_epochs
+    if training_args.max_steps > 0:
+        num_batches_per_epoch = (len(tokenized_datasets["train"]) // train_batch_size)
+        num_epochs = (training_args.max_steps // num_batches_per_epoch) + (training_args.max_steps % num_batches_per_epoch > 0)
+    else:
+        num_train_steps = len(
+        tokenized_datasets["train"]) // train_batch_size * training_args.num_epochs
 
     # Create learning rate schedule
     warmup_fn = optax.linear_schedule(
@@ -882,6 +888,7 @@ def main():
 
     train_time = 0
     epochs = tqdm(range(num_epochs), desc="Epoch ... ", position=0)
+    global_step = 0
     for epoch in epochs:
         # ======================== Training ================================
         train_start = time.time()
@@ -970,6 +977,13 @@ def main():
                     if training_args.push_to_hub:
                         repo.push_to_hub(
                             commit_message=f"Saving weights and logs of step {cur_step}", blocking=False)
+            
+            global_step += 1
+            if global_step >= num_train_steps:
+                break
+        
+        if global_step >= num_train_steps:
+                break
 
     # Eval after training
     if training_args.do_eval:
