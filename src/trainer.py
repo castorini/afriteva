@@ -83,6 +83,9 @@ class TrainingArguments:
                             "help": "Whether or not to replace AdamW by Adafactor."})
     num_train_epochs: float = field(
         default=3.0, metadata={"help": "Total number of training epochs to perform."})
+    max_steps: int = field(
+        default=-1, metadata={"help": "Total number of training steps to take. Takes precedence over num_train_epochs"}
+    )
     warmup_steps: int = field(
         default=0, metadata={"help": "Linear warmup over warmup_steps."})
     logging_steps: int = field(default=500, metadata={
@@ -101,6 +104,7 @@ class TrainingArguments:
     )
     hub_token: str = field(default=None, metadata={
                            "help": "The token to use to push to the Model Hub."})
+    report_to: str = field(default="wandb", metadata={"help": "Write metric to tensorboard or wandb"})
 
     def __post_init__(self):
         if self.output_dir is not None:
@@ -461,19 +465,72 @@ def generate_batch_splits(samples_idx: jnp.ndarray, batch_size: int) -> jnp.ndar
     return batch_idx
 
 
-def write_train_metric(summary_writer, train_metrics, train_time, step):
-    summary_writer.scalar("train_time", train_time, step)
+def write_train_metric(train_metrics, train_time, step, writer_type: str, logger: logging.Logger, eval_steps=None, summary_writer=None, wandb_run=None):
+    if writer_type == "tensorboard" and summary_writer is not None:
+        summary_writer.scalar("train_time", train_time, step)
+    elif writer_type == "wandb" and wandb_run is None:
+        assert eval_steps is not None
+        wandb_run.log({"train_time": train_time}, step=step, commit=False)
+    else:
+       logger.warning("Train Metrics could not be written. Supported `writer_type` are wandb & tensorboard")
 
     train_metrics = get_metrics(train_metrics)
-    for key, vals in train_metrics.items():
-        tag = f"train_{key}"
+
+    for metric_idx, (key, vals) in enumerate(train_metrics.items()):
+        tag = f"train/{key}"
+        
         for i, val in enumerate(vals):
-            summary_writer.scalar(tag, val, step - len(vals) + i + 1)
+            if writer_type == "tensorboard":
+                assert summary_writer is not None
+                summary_writer.scalar(tag, val, step=step - len(vals) + i + 1)
+            elif writer_type == "wandb":
+                wandb_run.log(
+                     {tag: val}, step=step - len(vals) + i + 1, 
+                     commit=True if (metric_idx+1 == len(train_metrics)) and (step % eval_steps != 0) else False)
 
 
-def write_eval_metric(summary_writer, eval_metrics, step):
+def write_eval_metric(eval_metrics, step, writer_type: str, logger: logging.Logger, summary_writer=None, wandb_run=None):
     for metric_name, value in eval_metrics.items():
-        summary_writer.scalar(f"eval_{metric_name}", value, step)
+        if writer_type == "tensorboard":
+            assert summary_writer is not None
+            summary_writer.scalar(f"eval/{metric_name}", value, step)
+        elif writer_type == "wandb":
+            wandb_run.log({f"eval/{metric_name}": value}, step=step, commit=True)
+        else:
+           logger.warning("Eval Metrics could not be written. Supported `writer_type` are wandb & tensorboard")
+
+
+def init_tensorboard(logger, output_dir, use_tensorboard: bool = False):
+    has_tensorboard = is_tensorboard_available()
+    summary_writer = None
+    if use_tensorboard and has_tensorboard and jax.process_index() == 0:
+        try:
+            from flax.metrics.tensorboard import SummaryWriter
+
+            summary_writer = SummaryWriter(
+                log_dir=Path(output_dir + "/tensorboard"))
+        except ImportError as ie:
+            has_tensorboard = False
+            logger.warning(
+                f"Unable to display metrics through TensorBoard because some package are not installed: {ie}"
+            )
+    return summary_writer
+
+
+def init_wandb(logger, args: list = None, use_wandb: bool = True):
+    run = None
+    if use_wandb and jax.process_index() == 0:
+        try:
+            import wandb
+            run = wandb.init(project=os.environ["WANDB_PROJECT"], entity=os.environ["WANDB_ENTITY"])
+
+            # Set args to empty list if None
+            args = args or []
+            for args_dict in args:
+                run.config.update(args_dict)
+        except ImportError as ie:
+            logger.warning(f"Unable to display metrics through W&B: {ie}")
+    return run
 
 
 def main():
@@ -677,25 +734,12 @@ def main():
         load_from_cache_file=not data_args.overwrite_cache,
     )
 
-    # Enable tensorboard only on the master node
-    has_tensorboard = is_tensorboard_available()
-    if has_tensorboard and jax.process_index() == 0:
-        try:
-            from flax.metrics.tensorboard import SummaryWriter
+    # Initialise summary_writer and wandb_run to None or required_class
+    use_tensorboard = training_args.report_to == "tensorboard"
+    summary_writer = init_tensorboard(logger, training_args.output_dir, use_tensorboard)
 
-            summary_writer = SummaryWriter(
-                log_dir=Path(training_args.output_dir + "/tensorboard"))
-        except ImportError as ie:
-            has_tensorboard = False
-            logger.warning(
-                f"Unable to display metrics through TensorBoard because some package are not installed: {ie}"
-            )
-    else:
-        logger.warning(
-            "Unable to display metrics through TensorBoard because the package is not installed: "
-            "Please run pip install tensorboard to enable."
-        )
-
+    use_wandb = training_args.report_to == "wandb"
+    wandb_run = init_wandb(logger, [data_args, model_args, training_args], use_wandb)
     # Initialize our training
     rng = jax.random.PRNGKey(training_args.seed)
     dropout_rngs = jax.random.split(rng, jax.local_device_count())
@@ -725,14 +769,21 @@ def main():
     # Store some constant
     logging.info(f"Number of local devices:: {jax.local_device_count()}")
     logging.info(f"Number of devices:: {jax.device_count()}")
-    num_epochs = int(training_args.num_train_epochs)
+    
+    
     train_batch_size = int(
         training_args.per_device_train_batch_size) * jax.device_count()
     eval_batch_size = int(
         training_args.per_device_eval_batch_size) * jax.device_count()
-
-    num_train_steps = len(
-        tokenized_datasets["train"]) // train_batch_size * num_epochs
+    
+    
+    # max_steps takes precedence over num_epochs
+    if training_args.max_steps > 0:
+        num_train_steps = training_args.max_steps
+        num_batches_per_epoch = (len(tokenized_datasets["train"]) // train_batch_size)
+        num_epochs = (num_train_steps // num_batches_per_epoch) + (num_train_steps % num_batches_per_epoch > 0)
+    else:
+        num_train_steps = len(tokenized_datasets["train"]) // train_batch_size * training_args.num_epochs
 
     # Create learning rate schedule
     warmup_fn = optax.linear_schedule(
@@ -839,6 +890,7 @@ def main():
 
     train_time = 0
     epochs = tqdm(range(num_epochs), desc="Epoch ... ", position=0)
+    global_step = 0
     for epoch in epochs:
         # ======================== Training ================================
         train_start = time.time()
@@ -872,9 +924,15 @@ def main():
                 # Save metrics
                 train_metric = jax_utils.unreplicate(train_metric)
                 train_time += time.time() - train_start
-                if has_tensorboard and jax.process_index() == 0:
+                if jax.process_index() == 0:
                     write_train_metric(
-                        summary_writer, train_metrics, train_time, cur_step)
+                        train_metrics, train_time, cur_step, 
+                        logger=logger,
+                        writer_type=training_args.report_to, # "tensorboard" if has_tensorboard and use_tensorboard else "wandb",
+                        eval_steps=training_args.eval_steps,
+                        summary_writer=summary_writer,
+                        wandb_run=wandb_run
+                    )
 
                 epochs.write(
                     f"Step... ({cur_step} | Loss: {train_metric['loss'].mean()}, Learning Rate: {train_metric['learning_rate'].mean()})"
@@ -909,8 +967,14 @@ def main():
                     f"Step... ({cur_step} | Loss: {eval_metrics['loss']}, Acc: {eval_metrics['accuracy']})")
 
                 # Save metrics
-                if has_tensorboard and jax.process_index() == 0:
-                    write_eval_metric(summary_writer, eval_metrics, cur_step)
+                if jax.process_index() == 0:
+                    write_eval_metric(
+                        eval_metrics, cur_step, 
+                        logger=logger,
+                        writer_type=training_args.report_to, #"tensorboard" if has_tensorboard and use_tensorboard else "wandb",
+                        summary_writer=summary_writer,
+                        wandb_run=wandb_run,
+                        )
 
             if cur_step % training_args.save_steps == 0 and cur_step > 0:
                 # save checkpoint after each epoch and push checkpoint to the hub
@@ -923,6 +987,13 @@ def main():
                     if training_args.push_to_hub:
                         repo.push_to_hub(
                             commit_message=f"Saving weights and logs of step {cur_step}", blocking=False)
+            
+            global_step += 1
+            if global_step >= num_train_steps:
+                break
+        
+        if global_step >= num_train_steps:
+                break
 
     # Eval after training
     if training_args.do_eval:

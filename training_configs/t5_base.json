@@ -2,9 +2,9 @@
     "output_dir": "run/afriteva_base",
     "model_type": "t5-base",
     "config_name": "t5-base",
-    "tokenizer_name": "tokenizers/afriteva_tokenizers",
-    "train_file": "data/train/all_train.txt",
-    "validation_file": "data/eval/all_eval.txt",
+    "tokenizer_name": "tokenizers",
+    "train_file": "data/all_train.txt",
+    "validation_file": "data/all_eval.txt",
     "max_seq_length": 512,
     "per_device_train_batch_size": 32,
     "per_device_eval_batch_size": 32,
@@ -17,10 +17,11 @@
     "save_steps": 20000,
     "eval_steps": 20000,
     "mlm_probability": 0.15,
-    "num_train_epochs": 400,
+    "max_steps": 500000,
     "do_train": true,
     "do_eval": true,
     "fp16": true,
     "dtype": "bfloat16",
-    "gradient_accumulation_steps": 8
+    "gradient_accumulation_steps": 8,
+    "report_to": "wandb"
 }

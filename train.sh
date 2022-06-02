@@ -6,6 +6,9 @@
 #SBATCH --account=def-kshook
 #SBATCH -o logs/train_afrit5_base_am_ha_sw.log
 
-nvidia-smi
+# nvidia-smi
+export WANDB_MODE="online"
+export WANDB_ENTITY="jarmy-naija"
+export WANDB_PROJECT="afriteva-v2"
 
-python3 src/trainer.py training_configs/t5_large.json
+python3 src/trainer.py training_configs/t5_base.json
