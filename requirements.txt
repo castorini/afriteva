@@ -1,0 +1,5 @@
+transformers==4.19.4
+flax==0.5.1
+wandb==0.12.18
+-f https://storage.googleapis.com/jax-releases/libtpu_releases.html
+jax[tpu]>=0.2.16
