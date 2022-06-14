@@ -468,7 +468,7 @@ def generate_batch_splits(samples_idx: jnp.ndarray, batch_size: int) -> jnp.ndar
 def write_train_metric(train_metrics, train_time, step, writer_type: str, logger: logging.Logger, eval_steps=None, summary_writer=None, wandb_run=None):
     if writer_type == "tensorboard" and summary_writer is not None:
         summary_writer.scalar("train_time", train_time, step)
-    elif writer_type == "wandb" and wandb_run is None:
+    elif writer_type == "wandb" and wandb_run is not None:
         assert eval_steps is not None
         wandb_run.log({"train_time": train_time}, step=step, commit=False)
     else:
