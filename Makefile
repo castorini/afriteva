@@ -1,4 +1,4 @@
-phony: create-env
+.PHONY: create-env
 
 create-env:
 		pip install --upgrade pip
