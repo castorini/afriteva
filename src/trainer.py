@@ -99,6 +99,8 @@ class TrainingArguments:
     push_to_hub: bool = field(
         default=False, metadata={"help": "Whether or not to upload the trained model to the model hub after training."}
     )
+    gradient_accumulation_steps: bool = field(
+        default=1, metadata={"help": "Accumulate gradients for defined number of steps"})
     hub_model_id: str = field(
         default=None, metadata={"help": "The name of the repository to keep in sync with the local `output_dir`."}
     )
@@ -468,7 +470,7 @@ def generate_batch_splits(samples_idx: jnp.ndarray, batch_size: int) -> jnp.ndar
 def write_train_metric(train_metrics, train_time, step, writer_type: str, logger: logging.Logger, eval_steps=None, summary_writer=None, wandb_run=None):
     if writer_type == "tensorboard" and summary_writer is not None:
         summary_writer.scalar("train_time", train_time, step)
-    elif writer_type == "wandb" and wandb_run is None:
+    elif writer_type == "wandb" and wandb_run is not None:
         assert eval_steps is not None
         wandb_run.log({"train_time": train_time}, step=step, commit=False)
     else:
@@ -780,10 +782,11 @@ def main():
     # max_steps takes precedence over num_epochs
     if training_args.max_steps > 0:
         num_train_steps = training_args.max_steps
-        num_batches_per_epoch = (len(tokenized_datasets["train"]) // train_batch_size)
+        num_batches_per_epoch = len(tokenized_datasets["train"]) // (train_batch_size * int(training_args.gradient_accumulation_steps))
         num_epochs = (num_train_steps // num_batches_per_epoch) + (num_train_steps % num_batches_per_epoch > 0)
     else:
-        num_train_steps = len(tokenized_datasets["train"]) // train_batch_size * training_args.num_epochs
+        num_train_steps = (len(tokenized_datasets["train"]) // (train_batch_size * int(training_args.gradient_accumulation_steps))) \
+                              * training_args.num_epochs
 
     # Create learning rate schedule
     warmup_fn = optax.linear_schedule(
@@ -829,6 +832,9 @@ def main():
             weight_decay=training_args.weight_decay,
             mask=decay_mask_fn,
         )
+    if training_args.gradient_accumulation_steps > 1:
+        optimizer = optax.MultiSteps(optimizer, training_args.gradient_accumulation_steps)
+
 
     # Setup train state
     state = train_state.TrainState.create(
