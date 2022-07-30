@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+from azure.core.exceptions import ResourceExistsError
 from azure.storage.blob import BlobServiceClient
 
 CONNECTION_STRING_FORMAT = "DefaultEndpointsProtocol=https;AccountName={account_name};" \
@@ -42,5 +43,8 @@ def download_blob(client: BlobServiceClient, container: str, filename: str, down
 def upload_folder(folder_path: str, container: str, client: BlobServiceClient):
     all_files = [str(x.relative_to(Path())) for x in Path(folder_path).glob("**/*") if x.is_file()]
     for f in all_files:
-        print(f"Uploading: {f}")
-        upload_blob(f, container, client)
+        try:
+            print(f"Uploading: {f}")
+            upload_blob(f, container, client)
+        except ResourceExistsError as e:
+            print(f"{f} already exists in container")
