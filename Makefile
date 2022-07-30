@@ -1,5 +1,5 @@
 .PHONY: create-env
 
 create-env:
-		pip install --upgrade pip
-		pip install --user -r requirements.txt
+		python3 -m pip install --upgrade pip
+		python3 -m pip install --user -r requirements.txt
