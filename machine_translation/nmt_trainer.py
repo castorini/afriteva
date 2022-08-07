@@ -259,10 +259,12 @@ class DataTrainingArguments:
             raise ValueError(
                 "Need either a dataset name or a training/validation file."
             )
-        elif self.source_lang is None or self.target_lang is None:
-            raise ValueError(
-                "Need to specify the source language and the target language."
-            )
+        
+        if self.source_lang is None or self.target_lang is None:
+            # raise ValueError(
+            #     "Need to specify the source language and the target language."
+            # )
+            print("`source language` or `target language` is not set")
 
         # accepting both json and jsonl file extensions, as
         # many jsonlines files actually have a .json extension
@@ -442,7 +444,7 @@ def main():
         )
 
     # prefix = data_args.source_prefix if data_args.source_prefix is not None else ""
-    prefix = "Translate {source_lang} to {target_lang} :"
+    prefix = "Translate {source_lang} to {target_lang}: "
 
     # Preprocessing the datasets.
     # We need to tokenize inputs and targets.
@@ -481,8 +483,8 @@ def main():
         model.config.forced_bos_token_id = forced_bos_token_id
 
     # Get the language codes for input/target.
-    source_lang = data_args.source_lang.split("_")[0]
-    target_lang = data_args.target_lang.split("_")[0]
+    # source_lang = data_args.source_lang.split("_")[0]
+    # target_lang = data_args.target_lang.split("_")[0]
 
     # Temporarily set max_target_length for training.
     max_target_length = data_args.max_target_length
@@ -735,11 +737,11 @@ def main():
         else:
             kwargs["dataset"] = data_args.dataset_name
 
-    languages = [
-        l for l in [data_args.source_lang, data_args.target_lang] if l is not None
-    ]
-    if len(languages) > 0:
-        kwargs["language"] = languages
+    # languages = [
+    #     l for l in [data_args.source_lang, data_args.target_lang] if l is not None
+    # ]
+    # if len(languages) > 0:
+    #     kwargs["language"] = languages
 
     if training_args.push_to_hub:
         trainer.push_to_hub(**kwargs)
