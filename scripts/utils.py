@@ -35,7 +35,7 @@ def upload_blob(file_path: str, container: str, client: BlobServiceClient, dest_
 def download_blob(client: BlobServiceClient, container: str, filename: str, download_dir: str):
     blob_client = client.get_blob_client(container, filename)
 
-    path = os.path.join(download_dir, filename)
+    path = os.path.join(download_dir, os.path.basename(filename))
     with open(path, "wb") as download_file:
         download_file.write(blob_client.download_blob().readall())
 
@@ -48,3 +48,13 @@ def upload_folder(folder_path: str, container: str, client: BlobServiceClient):
             upload_blob(f, container, client)
         except ResourceExistsError as e:
             print(f"{f} already exists in container")
+
+
+def download_folder(folder_path: str, dest_path: str, container: str, client: BlobServiceClient):
+    container_client = client.get_container_client(container)
+    all_files = container_client.list_blobs(name_starts_with=folder_path)
+
+    os.makedirs(dest_path, exist_ok=True)
+    for f in all_files:
+        print(f"Downloading {f.name} to {dest_path}")
+        download_blob(client, container, f.name, dest_path)
