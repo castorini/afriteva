@@ -441,7 +441,8 @@ def main():
             "Make sure that `config.decoder_start_token_id` is correctly defined"
         )
 
-    prefix = data_args.source_prefix if data_args.source_prefix is not None else ""
+    # prefix = data_args.source_prefix if data_args.source_prefix is not None else ""
+    prefix = "Translate {source_lang} to {target_lang} :"
 
     # Preprocessing the datasets.
     # We need to tokenize inputs and targets.
@@ -496,9 +497,10 @@ def main():
         )
 
     def preprocess_function(examples):
+        source_lang, target_lang = list(examples.keys())
         inputs = [ex[source_lang] for ex in examples["translation"]]
         targets = [ex[target_lang] for ex in examples["translation"]]
-        inputs = [prefix + inp for inp in inputs]
+        inputs = [prefix.format(source_lang=source_lang, target_lang=target_lang) + inp for inp in inputs]
         model_inputs = tokenizer(
             inputs,
             max_length=data_args.max_source_length,
