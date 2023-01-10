@@ -1,65 +1,30 @@
 from classification_dataset import ClassificationDataset
-from utils import LoggingCallback, get_dataset
-import pandas as pd
-import numpy as np
-import torch
-import sys
+from utils import LoggingCallback
 import random
 import argparse
 import textwrap
+import torch
 from tqdm.auto import tqdm
 from sklearn import metrics
 from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer
 from model import T5FineTuner
 import pytorch_lightning as pl
+from pytorch_lightning.loggers import CSVLogger
 
 MODEL_MAX_LENGTH = 512
-
-NEWS_LABELS = {
-    "yoruba": [
-        "nigeria",
-        "africa",
-        "world",
-        "entertainment",
-        "health",
-        "sport",
-        "politics",
-    ],
-    "hausa": ["africa", "world", "health", "nigeria", "politics"],
-}
 
 
 def get_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Finetune T5 fle classification")
-    parser.add_argument(
-        "--data_path", type=str, required=True, help="Path of input training file"
-    )
-    parser.add_argument(
-        "--output_dir",
-        type=str,
-        required=True,
-        help="Directory to store checkpoint",
-    )
-    parser.add_argument(
-        "--model_name_or_path",
-        type=str,
-        help="Model name or path",
-    )
-    parser.add_argument(
-        "--tokenizer_name_or_path",
-        type=str,
-        help="Tokenizer name or path",
-    )
-    parser.add_argument(
-        "--max_seq_length",
-        type=int,
-        default=MODEL_MAX_LENGTH,
-        help="Maimum sequence length",
-    )
-    parser.add_argument(
-        "--learning_rate", type=float, default=3e-4, help="learning rate"
-    )
+    parser.add_argument("--train_data_path", type=str, required=True, help="Path of input training file")
+    parser.add_argument("--eval_data_path", type=str, required=False, help="Path of input eval file")
+    parser.add_argument("--test_data_path", type=str, required=False, help="Path of input eval file")
+    parser.add_argument("--output_dir", type=str, required=True, help="Directory to store checkpoint")
+    parser.add_argument("--model_name_or_path", type=str, help="Model name or path", required=True)
+    parser.add_argument("--tokenizer_name_or_path", type=str, help="Tokenizer name or path")
+    parser.add_argument("--max_seq_length", type=int, default=MODEL_MAX_LENGTH, help="Maimum sequence length")
+    parser.add_argument("--learning_rate", type=float, default=3e-4, help="learning rate")
     parser.add_argument("--weight_decay", type=float, default=0.0, help="weight decay")
     parser.add_argument("--adam_epsilon", type=float, default=1e-8)
     parser.add_argument("--warmup_steps", type=float, default=0)
@@ -75,6 +40,9 @@ def get_parser() -> argparse.ArgumentParser:
     parser.add_argument("--lang", type=str)
     parser.add_argument("--opt_level", type=str, default="O1")
     parser.add_argument("--use_fast_tokenizer", type=bool, default=True)
+    parser.add_argument("--class_labels", type=str, required=True)
+    parser.add_argument("--data_column", type=str, required=True)
+    parser.add_argument("--target_column", type=str, required=True)
 
     return parser
 
@@ -100,66 +68,80 @@ def main():
 
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_name_or_path)
 
-    label = NEWS_LABELS[args.lang]
+    label = args.class_labels.split(",") 
     class_map = generate_class_token(label, tokenizer)
     inv_class_map = {v: k for k, v in class_map.items()}
 
-    print(class_map)
-    print(inv_class_map)
+    dataset_kwargs = {
+        "data_column": args.data_column,
+        "target_column": args.target_column,
+        "max_seq_length": args.max_seq_length,
+        "class_map": class_map,
+    }
 
-    train_dataset = ClassificationDataset(
-        tokenizer=tokenizer,
-        data_path=args.data_path,
-        type_path="train",
-        class_map=class_map,
-    )
-    eval_dataset = ClassificationDataset(
-        tokenizer=tokenizer,
-        data_path=args.data_path,
-        type_path="dev",
-        class_map=class_map,
-    )
-    test_dataset = ClassificationDataset(
-        tokenizer=tokenizer,
-        data_path=args.data_path,
-        type_path="test",
-        class_map=class_map,
-    )
+    if args.train_data_path is not None:
+        train_dataset = ClassificationDataset(
+            tokenizer=tokenizer,
+            data_path=args.train_data_path,
+            **dataset_kwargs
+        )
+    
+    if args.eval_data_path is not None:
+        eval_dataset = ClassificationDataset(
+            tokenizer=tokenizer,
+            data_path=args.eval_data_path,
+            **dataset_kwargs
+        )
+
+    if args.test_data_path is not None:
+        test_dataset = ClassificationDataset(
+            tokenizer=tokenizer,
+            data_path=args.test_data_path,
+            **dataset_kwargs
+        )
 
     # save checkpoint during training
     checkpoint_callback = pl.callbacks.ModelCheckpoint(
         filename=args.output_dir + "/checkpoint.pth",
         monitor="val_loss",
         mode="min",
-        save_top_k=5,
+        save_last=True,
+        every_n_epochs=1,
         verbose=True,
     )
-    train_params = dict(
-        accumulate_grad_batches=args.gradient_accumulation_steps,
-        gpus=args.n_gpu,
-        max_epochs=args.num_train_epochs,
-        # early_stop_callback=False,
-        precision=16 if args.fp_16 else 32,
-        # amp_level=args.opt_level,
-        gradient_clip_val=args.max_grad_norm,
-        checkpoint_callback=checkpoint_callback,
-        callbacks=[LoggingCallback()],
+
+    csv_logger = CSVLogger(
+        save_dir=args.output_dir,
+        name="",
+        version=""
     )
 
-    # Train
-    model = T5FineTuner(args, class_map)
-    trainer = pl.Trainer(**train_params)
-    trainer.fit(model)
+    train_params = dict(
+        accumulate_grad_batches=args.gradient_accumulation_steps,
+        accelerator='gpu' if torch.cuda.is_available() else 'cpu',
+        devices=args.n_gpu if args.n_gpu else 1,
+        max_epochs=args.num_train_epochs,
+        precision=16 if args.fp_16 else 32,
+        gradient_clip_val=args.max_grad_norm,
+        callbacks=[LoggingCallback(), checkpoint_callback],
+        logger=csv_logger
+    )
 
-    # test evaluation
+    print("[INFO] Training model .........")
+    t5_finetuner_module = T5FineTuner(args, train_dataset=train_dataset, eval_dataset=eval_dataset)
+    trainer = pl.Trainer(**train_params)
+    trainer.fit(t5_finetuner_module)
+
+
+    print("[INFO] Evaluating model .........")
     test_loader = DataLoader(test_dataset, batch_size=64, num_workers=4, shuffle=True)
-    model.model.eval()
-    model = model.to("cpu")
+    t5_finetuner_module.model.eval()
+    t5_finetuner_module = t5_finetuner_module.to("cpu")
     outputs = []
     targets = []
     for batch in tqdm(test_loader):
 
-        outs = model.model.generate(
+        outs = t5_finetuner_module.model.generate(
             input_ids=batch["source_ids"],
             attention_mask=batch["source_mask"],
             max_length=2,
@@ -174,14 +156,15 @@ def main():
 
         outputs.extend(dec)
         targets.extend(target)
-
+    print(outputs)
+    print(targets)
     print(metrics.accuracy_score(targets, outputs))
     print(metrics.classification_report(targets, outputs))
 
-    # random
+    print("[INFO] Generating predictions .........")
     new_batch = next(iter(test_loader))
     new_batch["source_ids"].shape
-    outs = model.model.generate(
+    outs = t5_finetuner_module.model.generate(
         input_ids=new_batch["source_ids"],
         attention_mask=new_batch["source_mask"],
         max_length=2,
@@ -208,8 +191,6 @@ def main():
         print("\nActual sentiment: %s" % targets[i])
         print("predicted sentiment: %s" % dec[i])
         print("=====================================================================\n")
-
-    print(new_batch["target_ids"])
 
 
 if __name__ == "__main__":

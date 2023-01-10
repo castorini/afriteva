@@ -1,3 +1,4 @@
+import os
 import logging
 import torch
 import random
@@ -34,11 +35,6 @@ class LoggingCallback(pl.Callback):
                         logger.info("{} = {}\n".format(key, str(metrics[key])))
                         writer.write("{} = {}\n".format(
                             key, str(metrics[key])))
-
-
-def get_dataset(tokenizer, type_path, class_map, args):
-    return ClassificationDataset(tokenizer=tokenizer, data_path=args.data_path, type_path=type_path, class_map=class_map, max_len=args.max_seq_length)
-
 
 def set_seed(seed):
     random.seed(seed)

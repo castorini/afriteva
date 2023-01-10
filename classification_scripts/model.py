@@ -3,7 +3,6 @@ from transformers import AutoTokenizer, T5Tokenizer
 from transformers import FlaxT5ForConditionalGeneration
 from transformers import T5ForConditionalGeneration
 import pytorch_lightning as pl
-from utils import get_dataset
 from transformers import (
     AdamW,
     T5ForConditionalGeneration,
@@ -18,13 +17,17 @@ import pytorch_lightning as pl
 
 
 class T5FineTuner(pl.LightningModule):
-    def __init__(self, hparam, class_map):
+    """
+    T5 Finetuning module
+    """
+    def __init__(self, hparam, train_dataset: Dataset, eval_dataset: Dataset, from_flax: bool=False):
         super(T5FineTuner, self).__init__()
         self.hparam = hparam
-        self.class_map = class_map
+        self.train_dataset = train_dataset
+        self.eval_dataset = eval_dataset
 
         self.model = T5ForConditionalGeneration.from_pretrained(
-            hparam.model_name_or_path, from_flax=True)
+            hparam.model_name_or_path, from_flax=from_flax)
         self.tokenizer = AutoTokenizer.from_pretrained(
             hparam.model_name_or_path, use_fast=hparam.use_fast_tokenizer
         )
@@ -63,21 +66,21 @@ class T5FineTuner(pl.LightningModule):
         loss = self._step(batch)
 
         tensorboard_logs = {"train_loss": loss}
+        self.log("loss", loss)
         return {"loss": loss, "log": tensorboard_logs}
 
     def training_epoch_end(self, outputs):
         avg_train_loss = torch.stack([x["loss"] for x in outputs]).mean()
         tensorboard_logs = {"avg_train_loss": avg_train_loss}
-        # return {"avg_train_loss": avg_train_loss, "log": tensorboard_logs, 'progress_bar': tensorboard_logs}
 
     def validation_step(self, batch, batch_idx):
         loss = self._step(batch)
+        self.log("val_loss", loss)
         return {"val_loss": loss}
 
     def validation_epoch_end(self, outputs):
         avg_loss = torch.stack([x["val_loss"] for x in outputs]).mean()
         tensorboard_logs = {"val_loss": avg_loss}
-        # return {"avg_val_loss": avg_loss, "log": tensorboard_logs, 'progress_bar': tensorboard_logs}
 
     def configure_optimizers(self):
         "Prepare optimizer and schedule (linear warmup and decay)"
@@ -94,8 +97,7 @@ class T5FineTuner(pl.LightningModule):
                 "weight_decay": 0.0,
             },
         ]
-        optimizer = AdamW(optimizer_grouped_parameters,
-                          lr=self.hparam.learning_rate, eps=self.hparam.adam_epsilon)
+        optimizer = torch.optim.AdamW(optimizer_grouped_parameters, lr=self.hparam.learning_rate, eps=self.hparam.adam_epsilon)
         self.opt = optimizer
         return [optimizer]
 
@@ -121,10 +123,9 @@ class T5FineTuner(pl.LightningModule):
         return tqdm_dict
 
     def train_dataloader(self):
-        train_dataset = get_dataset(
-            tokenizer=self.tokenizer, type_path="train", class_map=self.class_map, args=self.hparam)
+        train_dataset = self.train_dataset
         dataloader = DataLoader(train_dataset, batch_size=self.hparam.train_batch_size,
-                                drop_last=True, shuffle=True, num_workers=4)
+                                drop_last=False, shuffle=True, num_workers=4)
         t_total = (
             (len(dataloader.dataset) //
              (self.hparam.train_batch_size * max(1, self.hparam.n_gpu)))
@@ -138,6 +139,5 @@ class T5FineTuner(pl.LightningModule):
         return dataloader
 
     def val_dataloader(self):
-        val_dataset = get_dataset(
-            tokenizer=self.tokenizer, type_path="dev",class_map=self.class_map, args=self.hparam)
+        val_dataset = self.eval_dataset
         return DataLoader(val_dataset, batch_size=self.hparam.eval_batch_size, num_workers=4)
