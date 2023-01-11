@@ -43,6 +43,7 @@ def get_parser() -> argparse.ArgumentParser:
     parser.add_argument("--class_labels", type=str, required=True)
     parser.add_argument("--data_column", type=str, required=True)
     parser.add_argument("--target_column", type=str, required=True)
+    parser.add_argument("--prompt", type=str, required=False, default="")
 
     return parser
 
@@ -50,7 +51,7 @@ def get_parser() -> argparse.ArgumentParser:
 def generate_class_token(class_labels: list, tokenizer):
     class_map = {}
     for label in class_labels:
-        if tokenizer.convert_tokens_to_ids(label) > 5:
+        if len(tokenizer.encode(label)) > 2:
             class_map[label] = label
         else:
             token = ""
@@ -77,6 +78,7 @@ def main():
         "target_column": args.target_column,
         "max_seq_length": args.max_seq_length,
         "class_map": class_map,
+        "prompt": args.prompt
     }
 
     if args.train_data_path is not None:
@@ -135,29 +137,29 @@ def main():
 
     print("[INFO] Evaluating model .........")
     test_loader = DataLoader(test_dataset, batch_size=64, num_workers=4, shuffle=True)
-    t5_finetuner_module.model.eval()
-    t5_finetuner_module = t5_finetuner_module.to("cpu")
-    outputs = []
-    targets = []
-    for batch in tqdm(test_loader):
+    with torch.no_grad():
+        t5_finetuner_module.model.eval()
+        t5_finetuner_module = t5_finetuner_module.to("cpu")
+        outputs = []
+        targets = []
+        for batch in tqdm(test_loader):
 
-        outs = t5_finetuner_module.model.generate(
-            input_ids=batch["source_ids"],
-            attention_mask=batch["source_mask"],
-            max_length=2,
-        )
-        dec = [tokenizer.decode(ids, skip_special_tokens=True) for ids in outs]
-        target = [
-            tokenizer.decode(ids, skip_special_tokens=True)
-            for ids in batch["target_ids"]
-        ]
-        target = [inv_class_map[item] for item in target]
-        dec = [inv_class_map[item] for item in dec]
+            outs = t5_finetuner_module.model.generate(
+                input_ids=batch["source_ids"],
+                attention_mask=batch["source_mask"],
+                max_length=2,
+            )
+            dec = [tokenizer.decode(ids, skip_special_tokens=True) for ids in outs]
+            target = [
+                tokenizer.decode(ids, skip_special_tokens=True)
+                for ids in batch["target_ids"]
+            ]
+            target = [inv_class_map[item] for item in target]
+            dec = [inv_class_map[item] for item in dec]
 
-        outputs.extend(dec)
-        targets.extend(target)
-    print(outputs)
-    print(targets)
+            outputs.extend(dec)
+            targets.extend(target)
+
     print(metrics.accuracy_score(targets, outputs))
     print(metrics.classification_report(targets, outputs))
 

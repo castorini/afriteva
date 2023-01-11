@@ -41,7 +41,7 @@ class ClassificationDataset(Dataset):
 
             target = self.class_map[target.lower()]
             
-            input_ = input_.lower() + ' </s>'
+            input_ = self.prompt + input_.lower() + ' </s>'
             target = target + " </s>"
 
             # tokenize inputs
