@@ -51,7 +51,7 @@ def get_parser() -> argparse.ArgumentParser:
 def generate_class_token(class_labels: list, tokenizer):
     class_map = {}
     for label in class_labels:
-        if len(tokenizer.encode(label)) > 2:
+        if len(tokenizer.encode(label)) < 2:
             class_map[label] = label
         else:
             token = ""
@@ -72,6 +72,8 @@ def main():
     label = args.class_labels.split(",") 
     class_map = generate_class_token(label, tokenizer)
     inv_class_map = {v: k for k, v in class_map.items()}
+
+    print(f"[Info] Training Classs Map is {class_map}")
 
     dataset_kwargs = {
         "data_column": args.data_column,
