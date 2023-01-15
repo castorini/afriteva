@@ -11,6 +11,7 @@ from transformers import AutoTokenizer
 from model import T5FineTuner
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import CSVLogger
+from transformers.models.byt5.tokenization_byt5 import ByT5Tokenizer
 
 MODEL_MAX_LENGTH = 512
 
@@ -68,9 +69,13 @@ def main():
     print(f"Training Arguments {args}")
 
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_name_or_path)
-
     label = args.class_labels.split(",") 
-    class_map = generate_class_token(label, tokenizer)
+
+    if  isinstance(tokenizer, ByT5Tokenizer):
+        class_map = {label: str(i) for i, label in enumerate(label)}
+    else:
+        class_map = generate_class_token(label, tokenizer)
+    
     inv_class_map = {v: k for k, v in class_map.items()}
 
     print(f"[Info] Training Classs Map is {class_map}")
