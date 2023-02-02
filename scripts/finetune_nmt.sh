@@ -6,9 +6,9 @@ python3 machine_translation/nmt_trainer.py \
     --model_name_or_path google/mt5-base \
     --do_train \
     --do_eval \
-    --source_lang English \
-    --target_lang Yoruba \
-    --source_prefix "translate English to Yoruba: " \
+    # --source_lang English \
+    # --target_lang Yoruba \
+    # --source_prefix "translate English to Yoruba: " \
     --train_file data/relnews/train.json \
     --validation_file data/relnews/dev.json \
     --test_file data/relnews/test.json \

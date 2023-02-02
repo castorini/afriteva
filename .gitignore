@@ -138,3 +138,7 @@ data/
 __MACOSX/
 lightning_logs/*
 tokenizers/
+
+experiments/
+afriberta_data/
+models/

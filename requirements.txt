@@ -1,0 +1,8 @@
+python-dotenv==0.19.2
+azure-storage-blob==12.8.1
+transformers==4.19.4
+datasets==2.3.0
+flax==0.5.1
+wandb==0.12.18
+-f https://storage.googleapis.com/jax-releases/libtpu_releases.html
+jax[tpu]>=0.2.16
